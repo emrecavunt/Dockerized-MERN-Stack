@@ -1,3 +1,5 @@
+import * as config from './config';
+
 const path = require('path');
 
 const express = require('express');
@@ -59,15 +61,42 @@ app.use((error, req, res, next) => {
   res.status(status).json({ message: message, data: data });
 });
 
-mongoose
-  .connect(
-    'mongodb+srv://maximilian:9u4biljMQc4jjqbe@cluster0-ntrwp.mongodb.net/messages?retryWrites=true'
-  )
-  .then(result => {
-    const server = app.listen(8080);
-    const io = require('./socket').init(server);
-    io.on('connection', socket => {
-      console.log('Client connected');
-    });
-  })
-  .catch(err => console.log(err));
+
+const GRAPHQL_PORT = config.graphqlPort;
+const WS_PORT = config.graphqlWsPort;
+const MONGO_HOST = config.mongoHost;
+const MONGO_PORT = config.mongoPort;
+const MONGO_DB = config.mongoDb;
+const MONGO_USERNAME = config.mongoUsername;
+const MONGO_PASSWORD = config.mongoPassword;
+
+
+mongoose.Promise = require('bluebird');
+
+mongoose.connection.on('error', err => {
+    console.error('MONGO Error: ', err);
+    process.exit(2);
+});
+
+mongoose.connection.on('connected', () => {
+    console.info('Connected to MongoDB Database.');
+});
+
+
+mongoose.connect(
+  `mongodb://${
+      MONGO_USERNAME ? MONGO_USERNAME + (MONGO_PASSWORD ? ':' + MONGO_PASSWORD : '') + '@' : ''
+  }${MONGO_HOST}:${MONGO_PORT}/${MONGO_DB}${MONGO_USERNAME ? '?authSource=admin' : ''}`,
+  {
+      useMongoClient: true,
+      poolSize: 10,
+  }
+).then(result => {
+  const server = app.listen(8080);
+  const io = require('./socket').init(server);
+  io.on('connection', socket => {
+    console.log('Client connected');
+  });
+})
+.catch(err => console.log(err));
+
